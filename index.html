@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<div class="bg-orbs" aria-hidden="true"><span class="orb orb-1"></span><span class="orb orb-2"></span><span class="orb orb-3"></span></div>
+
+<div class="sidebar">
+    <div class="logo"><span class="icon">⚡</span><span class="logo-text">Navigation</span><button id="sidebarClose" class="sidebar-close" title="Close menu" aria-label="Close menu">✕</button></div>
+
+<nav id="sidebarNav"></nav>
+
+</div>
+
+<div id="sidebarOverlay" class="sidebar-overlay" aria-hidden="true"></div>
+
+<div class="main">
+    <div class="topbar">
+        <button id="sidebarToggle" class="sidebar-toggle" title="Open menu" aria-label="Open menu">☰</button>
+        <h1>Websites</h1>
+        <div class="topbar-actions">
+            <div class="search">
+                <span class="search-icon">🔍</span>
+                <input type="text" id="searchInput" placeholder="Search platforms..." spellcheck="false">
+                <span class="kbd-hint" title="Focus search">/</span>
+            </div>
+            <button id="addCardBtn" class="add-card-btn" title="Add a card">＋ Add</button>
+            <button id="manageBtn" class="manage-btn" title="Manage categories & data">⚙ Manage</button>
+            <button id="themeToggle" class="theme-toggle" title="Toggle theme">🌙</button>
+        </div>
+    </div>
+
+    <div class="content" id="sectionsContainer"></div>
+</div>
+
+<div id="cardModal" class="modal-overlay" hidden>
+    <div class="modal">
+        <h3 id="modalTitle">Add Card</h3>
+        <form id="cardForm">
+            <label>Name
+                <input type="text" id="cardTitle" required maxlength="60" placeholder="e.g. Figma">
+            </label>
+            <label>URL
+                <input type="text" id="cardUrl" required maxlength="300" placeholder="https://example.com">
+            </label>
+            <label>Description
+                <textarea id="cardDesc" rows="3" maxlength="200" placeholder="What is this website?"></textarea>
+            </label>
+            <label>Category
+                <select id="cardCategory"></select>
+            </label>
+            <label>Accent color
+                <div class="color-row">
+                    <input type="color" id="cardColor" value="#f97316">
+                    <button type="button" id="clearColorBtn" class="btn-secondary">Reset to brand default</button>
+                </div>
+            </label>
+            <div id="formError" class="form-error" hidden></div>
+            <div class="modal-actions">
+                <button type="button" id="cancelCardBtn" class="btn-secondary">Cancel</button>
+                <button type="submit" class="btn-primary">Save</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div id="manageModal" class="modal-overlay" hidden>
+    <div class="modal modal-wide">
+        <h3>Manage Dashboard</h3>
+
+        <div class="manage-section">
+            <h4>Categories</h4>
+            <div id="categoryList"></div>
+            <div class="category-add">
+                <input type="text" id="newCategoryLabel" placeholder="New category name" maxlength="40">
+                <input type="text" id="newCategoryEmoji" placeholder="😀" maxlength="4" title="Emoji shown next to the category">
+                <select id="newCategoryGroup" class="new-cat-group"></select>
+                <button type="button" id="addCategoryBtn" class="btn-secondary">Add</button>
+            </div>
+        </div>
+
+        <div class="manage-section">
+            <h4>Data</h4>
+            <div class="manage-actions">
+                <button type="button" id="exportBtn" class="btn-secondary">Export JSON</button>
+                <button type="button" id="importBtn" class="btn-secondary">Import JSON</button>
+                <input type="file" id="importFile" accept=".json,application/json" hidden>
+                <button type="button" id="resetBtn" class="btn-danger">Reset to defaults</button>
+            </div>
+        </div>
+
+        <div class="modal-actions">
+            <button type="button" id="manageCloseBtn" class="btn-secondary">Close</button>
+            <button type="button" id="manageSaveBtn" class="btn-primary">Save changes</button>
+        </div>
+    </div>
+</div>
+
+<div id="paletteOverlay" class="palette-overlay" hidden>
+    <div class="palette">
+        <input type="text" id="paletteInput" placeholder="Jump to a site or category...">
+        <div id="paletteList" class="palette-list"></div>
+    </div>
+</div>
+
+<div id="confirmModal" class="modal-overlay" hidden>
+    <div class="modal modal-small">
+        <h3>Are you sure?</h3>
+        <div id="confirmMsg" class="confirm-msg"></div>
+        <div class="modal-actions">
+            <button type="button" id="confirmNo" class="btn-secondary">Cancel</button>
+            <button type="button" id="confirmYes" class="btn-danger">Confirm</button>
+        </div>
+    </div>
+</div>
+
+<div id="contextMenu" class="context-menu" hidden></div>
+
+<div id="toastContainer"></div>
+
+<script src="script.js"></script>
+</body>
+</html>
