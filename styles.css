@@ -457,6 +457,24 @@
         .section-sort:hover { border-color: var(--accent); color: var(--text-main); }
         .section-sort:focus { border-color: var(--accent); }
 
+        .open-all {
+            font-size: 12px;
+            padding: 4px 10px;
+            margin-right: 8px;
+            border-radius: 7px;
+            border: 1px solid var(--border-card);
+            background: var(--btn-secondary-bg);
+            color: var(--text-muted);
+            cursor: pointer;
+            font-family: inherit;
+            transition: border-color 0.2s ease, color 0.2s ease, background 0.2s ease;
+        }
+        .open-all:hover {
+            border-color: var(--accent);
+            color: var(--accent);
+            background: var(--accent-soft);
+        }
+
         .grid {
             display: grid;
             grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));

@@ -374,6 +374,7 @@ function renderSections() {
         const tint = ` style="--cat-accent:${catColor(c.id)}"`;
         html += `<section id="${c.id}" class="section${collapsed}" data-accent${tint}>
             <h2><span class="cat-chip">${c.emoji || '🔗'}</span> ${escapeHtml(c.label)}<span class="collapse-icon">▾</span>
+                <button type="button" class="open-all" data-openall="${c.id}" title="Open all cards in this section in new tabs">↗ Open all</button>
                 <select class="section-sort" data-cat="${c.id}" title="Sort this section">
                     <option value="default" ${sort === 'default' ? 'selected' : ''}>Default</option>
                     <option value="az" ${sort === 'az' ? 'selected' : ''}>A–Z</option>
@@ -1244,8 +1245,54 @@ document.addEventListener('click', (e) => {
     if (!contextMenu.hidden && !contextMenu.contains(e.target)) hideContextMenu();
 });
 
+/* ===== Open all in tabs ===== */
+async function openAllInCategory(catId) {
+    const catCards = cardsForCategory(catId);
+    if (!catCards.length) {
+        toast('Nothing to open — this section is empty.', 'info');
+        return;
+    }
+    if (catCards.length > 8) {
+        const ok = await askConfirm(`Open ${catCards.length} tabs at once?`);
+        if (!ok) return;
+    }
+
+    let opened = 0;
+    let blocked = 0;
+    let recents = JSON.parse(localStorage.getItem('recentLinks')) || [];
+
+    catCards.forEach(card => {
+        const win = window.open(card.url, '_blank'); // no 'noopener' so we can detect blockers
+        if (win) {
+            opened++;
+            try {
+                win.opener = null; // still cut the opener link manually
+            } catch (err) {}
+            recents = recents.filter(item => item.url !== card.url);
+            recents.unshift({ title: card.title, desc: card.desc || '', url: card.url });
+        } else {
+            blocked++;
+        }
+    });
+
+    recents = recents.slice(0, 4);
+    localStorage.setItem('recentLinks', JSON.stringify(recents));
+    displayRecents();
+
+    if (blocked) {
+        toast(`Opened ${opened} tab(s) — ${blocked} blocked. Allow popups for this page to open all.`, 'error');
+    } else {
+        toast(`Opened ${opened} tab${opened === 1 ? '' : 's'}`, 'success');
+    }
+}
+
 /* ===== Collapse & sort ===== */
 document.getElementById('sectionsContainer').addEventListener('click', (e) => {
+    if (e.target.closest('.open-all')) {
+        const btn = e.target.closest('.open-all');
+        openAllInCategory(btn.getAttribute('data-openall'));
+        return;
+    }
     const h2 = e.target.closest('h2');
     if (!h2 || e.target.closest('select')) return;
     const section = h2.closest('.section');
