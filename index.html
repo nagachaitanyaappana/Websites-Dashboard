@@ -109,6 +109,10 @@
             >Category
             <select id="cardCategory"></select>
           </label>
+          <label class="check-row">
+            <input type="checkbox" id="cardPinned" />
+            Show in Favorites 📌
+          </label>
           <label
             >Accent color
             <div class="color-row">
@@ -163,8 +167,11 @@
             <button type="button" id="exportBtn" class="btn-secondary">
               Export JSON
             </button>
-            <button type="button" id="importBtn" class="btn-secondary">
-              Import JSON
+            <button type="button" id="importBtn" class="btn-secondary" title="Replace everything with a backup file">
+              Import (replace)
+            </button>
+            <button type="button" id="mergeImportBtn" class="btn-secondary" title="Add backup categories/cards to what you already have">
+              Merge JSON
             </button>
             <input
               type="file"

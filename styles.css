@@ -556,32 +556,6 @@
             width: 100%;
         }
 
-        .card-preview {
-            width: 100%;
-            height: 96px;
-            object-fit: cover;
-            border-radius: 10px;
-            background: var(--bg-card);
-            margin-bottom: 4px;
-            transition: transform 0.4s cubic-bezier(0.22, 1, 0.36, 1), filter 0.4s ease;
-        }
-        .card a .preview-wrap {
-            position: relative;
-            overflow: hidden;
-            border-radius: 10px;
-            margin-bottom: 4px;
-        }
-        .card a .preview-wrap::after {
-            content: "";
-            position: absolute;
-            inset: 0;
-            background: linear-gradient(to top, rgba(0, 0, 0, 0.25), transparent 55%);
-            opacity: 0;
-            transition: opacity 0.3s ease;
-        }
-        .card:hover .preview-wrap img { transform: scale(1.07); }
-        .card:hover .preview-wrap::after { opacity: 1; }
-
         .card-title {
             font-weight: bold;
             font-size: 16px;
@@ -598,6 +572,37 @@
             object-fit: contain;
             background: var(--btn-secondary-bg);
         }
+
+        .card-icon.card-avatar {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            font-weight: 700;
+            color: #fff;
+            background: linear-gradient(135deg, rgba(var(--accent-rgb), 0.95), #f472b6);
+            user-select: none;
+        }
+
+        .card-pin {
+            position: absolute;
+            top: 10px;
+            left: 12px;
+            font-size: 12px;
+            line-height: 1;
+            opacity: 0.85;
+            pointer-events: none;
+        }
+
+        .check-row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 13px;
+            color: var(--text-muted);
+            cursor: pointer;
+        }
+        .check-row input { width: 15px; height: 15px; accent-color: var(--accent); cursor: pointer; }
 
         .card p {
             color: var(--text-muted);
@@ -1071,7 +1076,6 @@
                 gap: 12px;
             }
             .card a { padding: 12px; gap: 6px; }
-            .card-preview { height: 76px; }
             .card-title { font-size: 14px; }
             .card p { font-size: 12px; }
 

@@ -78,16 +78,12 @@ const DEFAULT_CATEGORIES = [
 ];
 
 /* ===== Cards ===== */
-function C(category, title, url, desc) { return { category, title, url, desc }; }
+function C(category, title, url, desc, extra) { return Object.assign({ category, title, url, desc }, extra || {}); }
 
 const DEFAULT_CARDS = [
-    C('favorites', 'ChatGPT', 'https://chatgpt.com', 'Conversational AI tool by OpenAI for writing, brainstorming, and coding.'),
     C('favorites', 'Aternos', 'https://aternos.org/server/', 'Free, customizable, permanent Minecraft server hosting for you and your friends.'),
-    C('favorites', 'YouTube', 'https://youtube.com', 'Video sharing platform for entertainment, tutorials, and live streams.'),
-    C('favorites', 'GitHub', 'https://github.com', 'Hosting service for software development and version control using Git.'),
-    C('favorites', 'WhatsApp', 'https://web.whatsapp.com/', 'Instant messaging and voice-over-IP service to stay connected with friends and family.'),
 
-    C('ai', 'ChatGPT', 'https://chatgpt.com', 'Advanced LLM assistant for text generation, analysis, and problem-solving.'),
+    C('ai', 'ChatGPT', 'https://chatgpt.com', 'Advanced LLM assistant for text generation, analysis, and problem-solving.', { pinned: true }),
     C('ai', 'Claude', 'https://claude.ai', "Anthropic's AI model focused on safe, precise deep writing and coding complex tasks."),
     C('ai', 'Gemini', 'https://gemini.google.com', "Google's highly integrated multimodal AI model for smart searching and assistance."),
     C('ai', 'Perplexity', 'https://www.perplexity.ai', 'An AI-powered conversational search engine that cites sources in real-time.'),
@@ -96,7 +92,7 @@ const DEFAULT_CARDS = [
     C('ai', 'Hugging Face', 'https://huggingface.co', 'The hub and repository for open-source AI models, datasets, and ML apps.'),
     C('ai', 'Runway', 'https://runwayml.com', 'Next-generation AI video generation and creative multi-media tools.'),
 
-    C('coding', 'GitHub', 'https://github.com', 'Collaborate on code, manage repositories, and track project issues.'),
+    C('coding', 'GitHub', 'https://github.com', 'Collaborate on code, manage repositories, and track project issues.', { pinned: true }),
     C('coding', 'Stack Overflow', 'https://stackoverflow.com', 'Community forum for developer Q&As, debugging, and programming solutions.'),
     C('coding', 'MDN Docs', 'https://developer.mozilla.org', 'The definitive web documentation resource for HTML, CSS, and JavaScript.'),
     C('coding', 'CodePen', 'https://codepen.io', 'An online development environment to write, test, and showcase interactive frontend designs.'),
@@ -117,7 +113,7 @@ const DEFAULT_CARDS = [
     C('design', 'Coolors', 'https://coolors.co', 'An ultra-fast color palette generator configured to make color schemes instantly.'),
     C('design', 'Pinterest', 'https://pinterest.com', 'Visual discovery engine for finding digital board mockups, fashion, and home ideas.'),
 
-    C('entertainment', 'YouTube', 'https://youtube.com', 'Stream endless videos, search music tracks, and subscribe to content creators.'),
+    C('entertainment', 'YouTube', 'https://youtube.com', 'Stream endless videos, search music tracks, and subscribe to content creators.', { pinned: true }),
     C('entertainment', 'Netflix', 'https://netflix.com', 'Subscription video-on-demand streaming service offering movies and television series.'),
     C('entertainment', 'Spotify', 'https://spotify.com', 'Digital music player providing access to millions of songs and podcasts.'),
     C('entertainment', 'Twitch', 'https://twitch.tv', 'Interactive platform specializing in live video streams focusing on gaming talent.'),
@@ -141,6 +137,7 @@ const DEFAULT_CARDS = [
     C('social', 'X', 'https://x.com', 'Social microblogging space for real-time news updates and trend updates.'),
     C('social', 'Reddit', 'https://reddit.com', 'A vast network of community sub-forums chatting about every hobby imaginable.'),
     C('social', 'Discord', 'https://discord.com', 'Voice, video, and text channel application ideal for gaming communities.'),
+    C('social', 'WhatsApp', 'https://web.whatsapp.com/', 'Instant messaging and voice-over-IP service to stay connected with friends and family.', { pinned: true }),
     C('social', 'Instagram', 'https://instagram.com', 'Photo and video-sharing platform focused on visual networking and content creator reels.'),
     C('social', 'LinkedIn', 'https://linkedin.com', 'Professional business network platform for resume portfolios and jobs.'),
 
@@ -162,6 +159,74 @@ const FALLBACK_ICON = "data:image/svg+xml;charset=UTF-8,%3Csvg%20xmlns='http://w
 
 const STORAGE_CATEGORIES = 'dashboardCategories';
 const STORAGE_CARDS = 'dashboardCards';
+
+/* ===== Data versioning & migration ===== */
+const DATA_VERSION = 3;
+
+/* v2 -> v3: favorites duplicates become a "pinned" flag on the single card. */
+function migrateFavoritesDuplicates(list) {
+    const favId = 'favorites';
+    const norm = u => String(u || '').replace(/\/+$/, '').toLowerCase();
+    const others = list.filter(c => c.category !== favId);
+    const kept = [];
+    list.filter(c => c.category === favId).forEach(fav => {
+        const twin = others.find(c => norm(c.url) === norm(fav.url));
+        if (twin) {
+            twin.pinned = true;
+        } else {
+            kept.push(fav); // no twin elsewhere: stays a real favorites card
+        }
+    });
+    return others.concat(kept);
+}
+
+function normalizeCategory(c, index) {
+    const base = (c && typeof c === 'object') ? c : {};
+    const fallbackId = slugify(base.label) || ('cat-' + (index + 1));
+    return {
+        id: (base.id && /^[a-z0-9-]+$/i.test(base.id)) ? base.id : fallbackId,
+        label: String(base.label || '').trim() || ('Category ' + (index + 1)),
+        emoji: base.emoji || '🔗',
+        group: base.group || 'Core'
+    };
+}
+
+function normalizeCard(c) {
+    const base = (c && typeof c === 'object') ? c : {};
+    return {
+        id: base.id ? String(base.id) : makeId(),
+        title: String(base.title || '').trim() || 'Untitled',
+        url: String(base.url || '').trim(),
+        desc: base.desc || '',
+        category: base.category || '',
+        color: base.color || undefined,
+        pinned: !!base.pinned
+    };
+}
+
+function migrateImported(state) {
+    const cats = Array.isArray(state && state.categories)
+        ? state.categories.map((c, i) => normalizeCategory(c, i))
+        : [];
+    const seen = new Set();
+    const categories = [];
+    cats.forEach(c => {
+        const key = c.id.toLowerCase();
+        if (seen.has(key)) return;
+        seen.add(key);
+        categories.push(c);
+    });
+    const idSet = new Set(categories.map(c => c.id.toLowerCase()));
+    const fallbackCat = categories[0] ? categories[0].id : '';
+    const cards = Array.isArray(state && state.cards)
+        ? state.cards.map(c => {
+            const card = normalizeCard(c);
+            if (!idSet.has(String(card.category).toLowerCase())) card.category = fallbackCat;
+            return card;
+        })
+        : [];
+    return { categories, cards };
+}
 
 let categories = [];
 let cards = [];
@@ -196,7 +261,7 @@ function loadCategories() {
     if (raw !== null) {
         try {
             const stored = JSON.parse(raw);
-            if (Array.isArray(stored)) return stored;
+            if (Array.isArray(stored)) return stored.map((c, i) => normalizeCategory(c, i));
         } catch (e) {}
     }
     const seeded = DEFAULT_CATEGORIES.map(c => ({ ...c }));
@@ -213,7 +278,7 @@ function loadCards() {
     if (raw !== null) {
         try {
             const stored = JSON.parse(raw);
-            if (Array.isArray(stored)) return stored;
+            if (Array.isArray(stored)) return stored.map(normalizeCard);
         } catch (e) {}
     }
     const seeded = DEFAULT_CARDS.map(c => ({ ...c, id: makeId(), createdAt: Date.now() }));
@@ -234,16 +299,25 @@ function cardIconFor(url) {
     return `https://www.google.com/s2/favicons?sz=64&domain=${encodeURIComponent(domain)}`;
 }
 
+/* Favicon fallback: swap to a colored first-letter avatar when loading fails. */
+function avatarHtml(title) {
+    const letter = escapeHtml(((title || '').trim().charAt(0) || '?').toUpperCase());
+    return `<span class="card-icon card-avatar" aria-hidden="true">${letter}</span>`;
+}
+
+function iconHtml(url, title) {
+    return `<img class="card-icon" src="${cardIconFor(url)}" data-title="${escapeHtml(title || '')}" alt="" loading="lazy" onerror="this.onerror=null;this.outerHTML=avatarHtml(this.dataset.title||'?')">`;
+}
+
 function cardHtml(card) {
     const accentAttr = card.color ? ' data-accent="true"' : '';
     const accentStyle = card.color ? ` style="--card-accent:${escapeHtml(card.color)}"` : '';
-    const preview = `https://image.thum.io/get/width/600/crop/720/${card.url}`;
     return `
         <div class="card" data-id="${escapeHtml(card.id)}" draggable="true"${accentAttr}${accentStyle}>
             <a href="${escapeHtml(card.url)}" target="_blank" rel="noopener">
-                <span class="preview-wrap"><img class="card-preview" src="${preview}" alt="" loading="lazy" onerror="this.remove()"></span>
+                ${card.pinned ? '<span class="card-pin" title="Pinned to Favorites">📌</span>' : ''}
                 <span class="card-title">
-                    <img class="card-icon" src="${cardIconFor(card.url)}" alt="">
+                    ${iconHtml(card.url, card.title)}
                     ${escapeHtml(card.title)}
                 </span>
                 <p>${escapeHtml(card.desc)}</p>
@@ -264,7 +338,7 @@ function renderSidebar() {
     if (!nav) return;
 
     const recentsCount = (JSON.parse(localStorage.getItem("recentLinks")) || []).length;
-    const catCount = id => cards.filter(c => c.category === id).length;
+    const catCount = id => cardsForCategory(id).length;
 
     let html = '<div class="sidebar-category">Core</div><ul class="nav-links">' +
         `<li><a href="#recents"><span class="icon">🕒</span>Recents<span class="nav-count">${recentsCount}</span></a></li>`;
@@ -319,12 +393,19 @@ function renderSections() {
     displayRecents();
 }
 
+function cardsForCategory(catId) {
+    if (catId === 'favorites') {
+        return cards.filter(c => c.pinned || c.category === 'favorites');
+    }
+    return cards.filter(c => c.category === catId);
+}
+
 function renderCards() {
     categories.forEach(cat => {
         const sectionEl = document.getElementById(cat.id);
         const grid = sectionEl ? sectionEl.querySelector('.grid') : null;
         if (!grid) return;
-        let catCards = cards.filter(c => c.category === cat.id);
+        let catCards = cardsForCategory(cat.id);
         const sort = sectionSorts[cat.id] || 'default';
         if (sort === 'az') {
             catCards = catCards.slice().sort((a, b) => a.title.localeCompare(b.title));
@@ -362,21 +443,11 @@ function displayRecents() {
     }
 
     recents.forEach(item => {
-        const domain = String(item.url)
-            .replace('https://', '')
-            .replace('http://', '')
-            .replace('www.', '')
-            .split(/[/?#]/)[0];
-
-        const icon = (domain.includes(':') || /^\d{1,3}(\.\d{1,3}){3}$/.test(domain))
-            ? '<img class="card-icon" src="data:image/svg+xml;charset=UTF-8,%3Csvg%20xmlns=\'http://www.w3.org/2000/svg\'%20viewBox=\'0%200%2024%2024\'%3E%3Ccircle%20cx=\'12\'%20cy=\'12\'%20r=\'9\'%20fill=\'none\'%20stroke=\'%2394a3b8\'%20stroke-width=\'2\'/%3E%3Cellipse%20cx=\'12\'%20cy=\'12\'%20rx=\'4\'%20ry=\'9\'%20fill=\'none\'%20stroke=\'%2394a3b8\'%20stroke-width=\'2\'/%3E%3Cline%20x1=\'3\'%20y1=\'12\'%20x2=\'21\'%20y2=\'12\'%20stroke=\'%2394a3b8\'%20stroke-width=\'2\'/%3E%3C/svg%3E" alt="">'
-            : `<img class="card-icon" src="https://www.google.com/s2/favicons?sz=64&domain=${encodeURIComponent(domain)}" alt="">`;
-
         container.innerHTML += `
             <div class="card">
                 <a href="${escapeHtml(item.url)}" target="_blank" rel="noopener">
                     <span class="card-title">
-                        ${icon}
+                        ${iconHtml(item.url, item.title)}
                         ${escapeHtml(item.title)}
                     </span>
                     <p>${escapeHtml(item.desc)}</p>
@@ -507,6 +578,7 @@ const cardUrlInput = document.getElementById('cardUrl');
 const cardDescInput = document.getElementById('cardDesc');
 const cardCategorySelect = document.getElementById('cardCategory');
 const cardColorInput = document.getElementById('cardColor');
+const cardPinnedInput = document.getElementById('cardPinned');
 const clearColorBtn = document.getElementById('clearColorBtn');
 const formError = document.getElementById('formError');
 const cancelCardBtn = document.getElementById('cancelCardBtn');
@@ -531,6 +603,7 @@ function openModal(card) {
     cardUrlInput.value = card ? card.url : '';
     cardDescInput.value = card ? (card.desc || '') : '';
     cardCategorySelect.value = (card && card.category) || (categories.length ? categories[0].id : '');
+    cardPinnedInput.checked = !!(card && card.pinned);
     colorActive = !!(card && card.color);
     cardColorInput.value = (card && card.color) || '#f97316';
     formError.hidden = true;
@@ -581,12 +654,13 @@ cardForm.addEventListener('submit', (e) => {
     const desc = cardDescInput.value.trim();
     const category = cardCategorySelect.value || (categories.length ? categories[0].id : '');
     const color = colorActive ? cardColorInput.value : undefined;
+    const pinned = cardPinnedInput.checked;
 
     if (editingId) {
         const card = cards.find(c => c.id === editingId);
-        if (card) Object.assign(card, { title, url: norm.url, desc, category, color });
+        if (card) Object.assign(card, { title, url: norm.url, desc, category, color, pinned });
     } else {
-        const newCard = { id: makeId(), title, url: norm.url, desc, category, createdAt: Date.now() };
+        const newCard = { id: makeId(), title, url: norm.url, desc, category, createdAt: Date.now(), pinned };
         if (color) newCard.color = color;
         cards.unshift(newCard);
     }
@@ -707,7 +781,11 @@ categoryList.addEventListener('click', async (e) => {
     const id = row.getAttribute('data-id');
     const cat = categories.find(c => c.id === id);
     if (!cat) return;
-    const count = cards.filter(c => c.category === id).length;
+    if (id === 'favorites') {
+        toast('The Favorites section is built-in — unpin cards instead of deleting it.', 'info');
+        return;
+    }
+    const count = cardsForCategory(id).length;
     const msg = count
         ? `Delete category "${cat.label}"? Its ${count} card(s) will also be removed.`
         : `Delete category "${cat.label}"?`;
@@ -771,7 +849,7 @@ manageSaveBtn.addEventListener('click', () => {
 
 /* ===== Data: export / import / reset ===== */
 exportBtn.addEventListener('click', () => {
-    const data = JSON.stringify({ version: 1, categories, cards }, null, 2);
+    const data = JSON.stringify({ version: DATA_VERSION, categories, cards }, null, 2);
     const blob = new Blob([data], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -783,25 +861,85 @@ exportBtn.addEventListener('click', () => {
     setTimeout(() => URL.revokeObjectURL(url), 2000);
 });
 
-importBtn.addEventListener('click', () => importFile.click());
+let importMode = 'replace';
 
-importFile.addEventListener('change', (e) => {
+importBtn.addEventListener('click', () => {
+    importMode = 'replace';
+    importFile.click();
+});
+
+const mergeImportBtn = document.getElementById('mergeImportBtn');
+mergeImportBtn.addEventListener('click', () => {
+    importMode = 'merge';
+    importFile.click();
+});
+
+function mergeImportedState(imported) {
+    const ourCats = categories.slice();
+    const catById = new Map(ourCats.map(c => [c.id.toLowerCase(), c]));
+    imported.categories.forEach(imp => {
+        if (catById.has(imp.id.toLowerCase())) return; // keep existing (don't clobber user edits)
+        ourCats.push(imp);
+        catById.set(imp.id.toLowerCase(), imp);
+    });
+    const firstCat = ourCats[0] ? ourCats[0].id : '';
+    const mergedCards = cards.slice();
+    const cardById = new Map(mergedCards.map(c => [c.id, c]));
+    imported.cards.forEach(imp => {
+        if (cardById.has(imp.id)) return; // same card id already present
+        const match = ourCats.find(c => c.id.toLowerCase() === String(imp.category).toLowerCase());
+        const merged = { ...imp, category: match ? match.id : firstCat };
+        mergedCards.push(merged);
+        cardById.set(merged.id, merged);
+    });
+    return { categories: ourCats, cards: mergedCards };
+}
+
+importFile.addEventListener('change', async (e) => {
     const file = e.target.files[0];
     if (!file) return;
     const reader = new FileReader();
-    reader.onload = () => {
+    reader.onload = async () => {
+        let imported;
         try {
             const data = JSON.parse(reader.result);
             if (!Array.isArray(data.categories) || !Array.isArray(data.cards)) throw new Error('bad format');
-            categories = data.categories;
-            cards = data.cards;
-            saveCategories(categories);
-            saveCards(cards);
-            renderAll();
-            populateCategorySelect();
+            imported = migrateImported(data);
         } catch (err) {
             toast('Import failed: that file is not a valid dashboard backup.', 'error');
+            return;
         }
+
+        if (importMode === 'replace') {
+            if (imported.cards.length === 0 && categories.length === 0) {
+                toast('Import cancelled: no data to replace.', 'info');
+                return;
+            }
+            const msg = imported.cards.length
+                ? `Replace your current dashboard with this backup (${imported.categories.length} categories, ${imported.cards.length} cards)? Your current cards, categories, and recents will be overwritten.`
+                : 'This backup contains no cards. Import it anyway?';
+            const ok = await askConfirm(msg);
+            if (!ok) return;
+            categories = imported.categories;
+            cards = imported.cards;
+        } else {
+            if (imported.categories.length === 0 && imported.cards.length === 0) {
+                toast('Import failed: the file has no data to merge.', 'error');
+                return;
+            }
+            const merged = mergeImportedState(imported);
+            categories = merged.categories;
+            cards = merged.cards;
+            toast(`Merged: ${imported.categories.length} categories, ${imported.cards.length} cards`, 'success');
+        }
+
+        // v2 -> v3: collapse favorites duplicates into pinned flags on either side
+        cards = migrateFavoritesDuplicates(cards);
+
+        saveCategories(categories);
+        saveCards(cards);
+        renderAll();
+        populateCategorySelect();
     };
     reader.readAsText(file);
     e.target.value = '';
@@ -953,7 +1091,7 @@ function renderPalette(query) {
         if (item.type === 'category') {
             el.innerHTML = `<span>${item.emoji || '🔗'}</span><span class="pi-title">${escapeHtml(item.label)}</span><span class="pi-cat">Category</span>`;
         } else {
-            el.innerHTML = `<img src="${cardIconFor(item.url)}" alt=""><span class="pi-title">${escapeHtml(item.label)}</span><span class="pi-cat">${escapeHtml(item.cat)}</span>`;
+            el.innerHTML = `${iconHtml(item.url, item.label)}<span class="pi-title">${escapeHtml(item.label)}</span><span class="pi-cat">${escapeHtml(item.cat)}</span>`;
         }
         el.addEventListener('click', () => activatePaletteItem(i));
         paletteList.appendChild(el);
@@ -1024,6 +1162,7 @@ function openCardContextMenu(e, card) {
         <button data-cm="open">↗ Open</button>
         <button data-cm="edit">✏️ Edit</button>
         <button data-cm="copy">🔗 Copy link</button>
+        <button data-cm="pin">${card.pinned ? '📍 Unpin from Favorites' : '📌 Pin to Favorites'}</button>
         <button data-cm="move">📂 Move to…</button>
         <hr>
         <button data-cm="delete" class="cm-danger">🗑️ Delete</button>
@@ -1080,6 +1219,12 @@ contextMenu.addEventListener('click', async (e) => {
                 toast('Copy not supported here', 'error');
             }
             break;
+        case 'pin':
+            contextCard.pinned = !contextCard.pinned;
+            saveCards(cards);
+            renderCards();
+            toast(contextCard.pinned ? `Pinned "${contextCard.title}" to Favorites` : `Unpinned "${contextCard.title}"`, 'success');
+            break;
         case 'move':
             showMoveSubmenu();
             return;
@@ -1125,7 +1270,8 @@ document.addEventListener("DOMContentLoaded", () => {
     initTheme();
     loadPrefs();
     categories = loadCategories();
-    cards = loadCards();
+    cards = migrateFavoritesDuplicates(loadCards().map(normalizeCard));
+    saveCards(cards);
     populateCategorySelect();
     renderAll();
 });
